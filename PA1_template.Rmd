@@ -1,25 +1,115 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Activity monitoring data"
+output: html_document
+date: "2022-10-06"
 ---
 
+Set the R environment
+```{r}
+library(lattice)
+library("knitr")
+opts_chunk$set(echo=TRUE, results="hold")
+Sys.setlocale("LC_TIME", "English")
+```
 
-## Loading and preprocessing the data
+Loading and preprocessing the data
+```{r}
+dtRAW <- read.csv('activity.csv', header = TRUE, na.strings = "NA", stringsAsFactors=FALSE)
+str(dtRAW)
+head(dtRAW)
+tail(dtRAW)
+```
 
+What is mean total number of steps taken per day?
+```{r}
+totalSPD <- aggregate(steps~date, data=dtRAW, FUN=sum, na.rm=TRUE)
+str(totalSPD)
+head(totalSPD)
+tail(totalSPD)
+```
 
+```{r}
+hist(totalSPD$steps, breaks=20, col="grey",
+     main="Total number of steps taken per day \n (missing data removed)",
+     xlab="Number of steps")
+```
 
-## What is mean total number of steps taken per day?
+```{r}
+muTSPD <- mean(totalSPD$steps)
+meTSPD <- median(totalSPD$steps)
+print(muTSPD)
+print(meTSPD)
+```
 
+What is the average daily activity pattern?
+```{r}
+muSPI <- aggregate(steps~interval, data=dtRAW, FUN=mean, na.rm=TRUE)
+plot(muSPI, type="l",
+     main="Average number of steps per 5-minute interval",
+     xlab="5-minute intervals",
+     ylab="Average numberof steps")
+```
 
+```{r}
+numMaxStep <- muSPI[which(muSPI$steps==max(muSPI$steps)), ]$interval
+print(numMaxStep)
+```
 
-## What is the average daily activity pattern?
+Imputing missing values
+```{r}
+numNA <- nrow(dtRAW[which(is.na(dtRAW$steps)),])
+print(numNA)
+```
 
+The strategy for filling missing values will be replacing missing values with the average number of steps in each 5-minute interval.
 
+```{r}
+dtNEW <- transform(dtRAW,
+                   steps=ifelse(is.na(dtRAW$steps),
+                                muSPI[match(muSPI$interval, dtRAW$interval), ]$steps,
+                                dtRAW$steps))
+sum(is.na(dtNEW))
+str(dtNEW)
+head(dtNEW)
+tail(dtNEW)
+```
 
-## Imputing missing values
+```{r}
+newTSPD <- aggregate(steps~date, data=dtNEW, FUN=sum, na.rm=TRUE)
+muNTSPD <- mean(newTSPD$steps)
+meNTSPD <- median(newTSPD$steps)
+hist(newTSPD$steps, breaks=20, col="grey",
+     main="Total number of steps taken per day \n (missing data filled in)",
+     xlab="Number of steps")
+```
 
+```{r}
+print(muNTSPD)
+print(meNTSPD)
+```
 
+```{r}
+par(mfrow=c(1, 2))
+hist(totalSPD$steps, breaks=20, col="grey",
+     main="Total number of steps taken per day \n (missing data removed)",
+     xlab="Number of steps")
+hist(newTSPD$steps, breaks=20, col="grey",
+     main="Total number of steps taken per day \n (missing data filled in)",
+     xlab="Number of steps")
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+Are there differences in activity patterns between weekdays and weekends?
+```{r}
+dtNEW$date <- as.Date(dtNEW$date, "%Y-%m-%d")
+dtNEW$weekdays <- as.factor(ifelse(weekdays(dtNEW$date) %in% c("Saturday", "Sunday"),
+                                  "weekend", "weekday"))
+str(dtNEW)
+head(dtNEW)
+tail(dtNEW)
+```
+
+```{r}
+weekSPI <- aggregate(steps ~ weekdays + interval, dtNEW, FUN=mean, na.rm=TRUE)
+xyplot(steps ~ interval | weekdays, data=weekSPI, type="l", layout=c(1, 2),
+       xlab="Interval", ylab="Number of steps")
+```
